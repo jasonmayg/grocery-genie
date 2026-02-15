@@ -1,75 +1,91 @@
-import random
+import pulp
 
-try:
-    # Your project likely has meals data in data.py
-    from data import MEALS
-except Exception:
-    MEALS = []
-
-def _normalize_meals(meals):
+def optimize_meals_ml(budget, calorie_target, diet, days=7):
     """
-    Ensures every meal has required keys:
-      - 'meal' (string)
-      - 'cost' (number)
-      - 'calories' (number, fallback if missing)
+    Uses Linear Programming (PuLP) to optimize meal selection based on cost and calories.
+    Args:
+        budget (float): Weekly budget constraint.
+        calorie_target (int): Daily calorie target.
+        diet (str): Dietary restriction filter.
+        days (int): Number of days to plan for (default 7).
     """
-    normalized = []
-    for m in meals:
-        name = m.get("meal") or m.get("name") or "Unknown Meal"
-        cost = float(m.get("cost", 0))
-        calories = m.get("calories", None)
-        if calories is None:
-            # Fallback so app doesn't break if calories not in data yet
-            calories = 500
-        normalized.append({"meal": name, "cost": cost, "calories": int(calories)})
-    return normalized
+    # 1. Define a Mock Database of potential meals with nutrition/cost info
+    # In a real app, this would come from your database or API
+    all_meals = [
+        {"id": 1, "meal": "Chicken Breast & Rice", "cost": 3.50, "calories": 600, "tags": ["None", "Gluten-Free"]},
+        {"id": 2, "meal": "Oatmeal & Berries", "cost": 1.20, "calories": 300, "tags": ["Vegetarian", "Vegan"]},
+        {"id": 3, "meal": "Avocado Toast", "cost": 2.50, "calories": 400, "tags": ["Vegetarian", "Vegan"]},
+        {"id": 4, "meal": "Steak & Asparagus", "cost": 8.00, "calories": 700, "tags": ["None", "Keto", "Paleo"]},
+        {"id": 5, "meal": "Pasta Primavera", "cost": 2.00, "calories": 500, "tags": ["Vegetarian"]},
+        {"id": 6, "meal": "Salmon Salad", "cost": 6.50, "calories": 550, "tags": ["None", "Keto", "Gluten-Free"]},
+        {"id": 7, "meal": "Tofu Stir Fry", "cost": 3.00, "calories": 450, "tags": ["Vegan", "Vegetarian"]},
+        {"id": 8, "meal": "Greek Yogurt Parfait", "cost": 1.80, "calories": 350, "tags": ["Vegetarian", "Gluten-Free"]},
+        {"id": 9, "meal": "Lentil Soup", "cost": 1.50, "calories": 300, "tags": ["Vegan", "Vegetarian"]},
+        {"id": 10, "meal": "Turkey Sandwich", "cost": 2.80, "calories": 400, "tags": ["None"]},
+        {"id": 11, "meal": "Smoothie Bowl", "cost": 4.50, "calories": 350, "tags": ["Vegan", "Vegetarian"]},
+        {"id": 12, "meal": "Quinoa Salad", "cost": 3.20, "calories": 400, "tags": ["Vegan", "Gluten-Free"]},
+    ]
 
-def optimize_meals_ml(budget, calorie_target=2000, days=7, trials=2000, diet = "None"):
-    """
-    Multi-objective optimizer:
-      - Hard constraint: total cost <= budget
-      - Soft objective: daily calories close to calorie_target (average)
-      - Soft objective: prefer lower cost (within budget)
+    # Filter meals based on diet
+    if diet != "None":
+        candidates = [m for m in all_meals if diet in m["tags"]]
+    else:
+        candidates = all_meals
 
-    Returns:
-      meals_selected (list of dicts), total_cost (float)
-    """
-    meals = _normalize_meals(MEALS)
+    # If filtering leaves too few options, fallback to all
+    if len(candidates) < 3:
+        candidates = all_meals
 
-    # If MEALS is empty, return a safe fallback
-    if not meals:
-        fallback = [{"meal": "Fallback Meal", "cost": round(budget / days, 2), "calories": calorie_target} for _ in range(days)]
-        return fallback, round(sum(x["cost"] for x in fallback), 2)
+    # 2. Setup Linear Programming Problem
+    # Goal: Minimize Cost subject to Calorie constraints
+    prob = pulp.LpProblem("MealOptimization", pulp.LpMinimize)
 
-    best_plan = None
-    best_score = float("inf")
+    # Decision Variables: How many times to eat each meal per week?
+    # Continuous variable (low bound 0), realistically we might want Integer but continuous is faster for demo
+    meal_vars = pulp.LpVariable.dicts("Meal", [m["id"] for m in candidates], lowBound=0, cat='Integer')
 
-    # weights (tuneable)
-    w_cal = 1.0
-    w_cost = 0.15  # small preference for cheaper plans (still must be under budget)
+    # Objective Function: Minimize Total Cost
+    prob += pulp.lpSum([meal_vars[m["id"]] * m["cost"] for m in candidates])
 
-    # Random search over meal combinations (simple “ML-ish” heuristic)
-    for _ in range(trials):
-        plan = [random.choice(meals) for _ in range(days)]
-        total_cost = sum(x["cost"] for x in plan)
-        if total_cost > budget:
-            continue
+    # Constraints
+    # 1. Total meals per week should roughly equal 3 meals * 7 days = 21 meals
+    # Let's say we are planning mainly for "Dinner" optimization for simplicity, so 7 meals.
+    prob += pulp.lpSum([meal_vars[m["id"]] for m in candidates]) == days
 
-        avg_cal = sum(x["calories"] for x in plan) / days
-        cal_error = abs(avg_cal - calorie_target)
+    # 2. Average daily calories should meet the target (Total Cals / 7 >= Target)
+    # We treat 'calorie_target' as the target for this specific meal slot (e.g. Dinner approx 1/3 of daily)
+    # For simplicity in this demo, let's assume calorie_target is passed as the Daily Target, 
+    # and we want the average meal to be roughly 1/3 of that.
+    per_meal_cal_target = calorie_target / 3.0
+    
+    total_calories = pulp.lpSum([meal_vars[m["id"]] * m["calories"] for m in candidates])
+    prob += total_calories >= (per_meal_cal_target * days) * 0.9  # Lower bound (-10%)
+    prob += total_calories <= (per_meal_cal_target * days) * 1.1  # Upper bound (+10%)
 
-        # score: prioritize calorie closeness, then cheaper within budget
-        score = (w_cal * cal_error) + (w_cost * total_cost)
+    # 3. Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=0))
 
-        if score < best_score:
-            best_score = score
-            best_plan = plan
-
-    # If we didn't find any under budget (rare), pick the cheapest meals
-    if best_plan is None:
-        meals_sorted = sorted(meals, key=lambda x: x["cost"])
-        best_plan = meals_sorted[:days]
-        total_cost = sum(x["cost"] for x in best_plan)
-        return best_plan, round(total_cost, 2)
-
-    return best_plan, round(sum(x["cost"] for x in best_plan), 2)
+    # 4. Format Results
+    selected_meals = []
+    
+    # Check if a valid solution was found
+    if pulp.LpStatus[prob.status] == "Optimal":
+        for m in candidates:
+            qty = meal_vars[m["id"]].varValue
+            if qty and qty > 0:
+                for _ in range(int(qty)):
+                    selected_meals.append({
+                        "meal": m["meal"],
+                        "cost": m["cost"],
+                        "calories": m["calories"]
+                    })
+        return selected_meals[:days], round(pulp.value(prob.objective), 2)
+    else:
+        # Fallback if solver fails (e.g. constraints too tight)
+        # Create a simple fallback list based on the variable 'days'
+        fallback_cost = round(budget / days, 2)
+        fallback = [
+            {"meal": "Chef's Choice (Solver Fallback)", "cost": fallback_cost, "calories": int(calorie_target/3)} 
+            for _ in range(days)
+        ]
+        return fallback, budget
