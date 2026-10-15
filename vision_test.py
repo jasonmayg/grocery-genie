@@ -8,7 +8,9 @@ from openai import OpenAI
 # 为了测试脚本简单，你可以直接在这里填 Key，或者从环境变量读取
 # 如果你已经配置了 .streamlit/secrets.toml，通常我们在 app 里读，
 # 这里为了独立运行，请把 Key 填在下面引号里，或者确保环境变量里有 OPENAI_API_KEY
-API_KEY = os.getenv("OPENAI_API_KEY") or "YOUR_OPENAI_API_KEY"
+API_KEY = os.getenv("OPENAI_API_KEY")
+if not API_KEY:
+    raise SystemExit("Set OPENAI_API_KEY in your environment or .env first.")
 IMAGE_PATH = "test_image.jpg"  # 确保你文件夹里有这张图
 # ----------------------------------------
 
