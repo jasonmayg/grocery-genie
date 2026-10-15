@@ -1,0 +1,16 @@
+# Secrets — never commit real keys
+.env
+.streamlit/secrets.toml
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local data / build artifacts
+grocery_ai.db
+*.zip
+
+# OS
+.DS_Store
