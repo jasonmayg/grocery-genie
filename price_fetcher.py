@@ -8,7 +8,8 @@ def fetch_grocery_price(item_name, store_preference="Any"):
     api_key = st.secrets.get("SERPAPI_KEY")
     
     if not api_key:
-        return {"error": "No API Key found"}
+        # No key (e.g. Demo Mode): signal "not found" so the agent estimates the price
+        return None
 
     # 构建搜索词：比如 "Costco Organic Milk" 或 "Walmart Eggs"
     query = f"{item_name}"

@@ -103,6 +103,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def md_safe(text: str) -> str:
+    """Escape '$' so Streamlit doesn't render prices like $5 ... $7 as LaTeX math."""
+    return (text or "").replace("\\$", "$").replace("$", "\\$")
+
 # ---------- Session State Initialization ----------
 if "gen_meal_plan" not in st.session_state: st.session_state["gen_meal_plan"] = None
 if "gen_shopping_list" not in st.session_state: st.session_state["gen_shopping_list"] = None
@@ -442,7 +447,7 @@ with tabs[1]:
 
     if st.session_state["gen_meal_plan"]:
         with st.container(border=True):
-            st.markdown(st.session_state["gen_meal_plan"])
+            st.markdown(md_safe(st.session_state["gen_meal_plan"]))
             
         with st.expander("📊 View Budget & Nutrition Analysis"):
             if st.session_state["gen_ml_df"] is not None:
@@ -469,7 +474,7 @@ with tabs[2]:
         
         with sub1:
             st.info("Items auto-deducted based on your inventory.")
-            st.markdown(checked_report)
+            st.markdown(md_safe(checked_report))
 
         with sub2:
             st.caption("AI compares prices from Google Shopping to find the best deals.")
@@ -528,7 +533,7 @@ with tabs[2]:
                 # Display Strategy
                 with st.container(border=True):
                     st.markdown("### 📋 Buying Strategy")
-                    st.markdown(st.session_state["gen_store_strategy"])
+                    st.markdown(md_safe(st.session_state["gen_store_strategy"]))
                 
                 # SAVE TO DB BUTTON
                 st.markdown('<div class="save-btn">', unsafe_allow_html=True)
