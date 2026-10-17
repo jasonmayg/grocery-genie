@@ -17,6 +17,12 @@
   <img alt="Demo mode" src="https://img.shields.io/badge/Demo%20Mode-no%20API%20key%20needed-2E7D32">
 </p>
 
+
+<p align="center">
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Walkthrough: kitchen inventory → AI meal plan within budget → shopping list → cheapest-store buying strategy (demo mode)" width="92%"></a><br>
+  <sub>Walkthrough: kitchen inventory → AI meal plan within budget → shopping list → cheapest-store buying strategy (demo mode). ▶ <a href="docs/demo.mp4">Full video with captions (MP4, 70 s)</a></sub>
+</p>
+
 ---
 
 ## The problem
