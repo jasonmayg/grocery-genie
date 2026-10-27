@@ -19,7 +19,7 @@ def fetch_grocery_price(item_name, store_preference="Any"):
     params = {
         "engine": "google_shopping",
         "q": query,
-        "location": "Santa Clara, California, United States", # 你所在的区域
+        "location": "California, United States", # 你所在的区域
         "hl": "en",
         "gl": "us",
         "num": 5, # 只取前5个结果
